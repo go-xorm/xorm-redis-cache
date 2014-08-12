@@ -159,7 +159,6 @@ func (c *RedisCacher) clearObjects(key string) {
 }
 
 func (c *RedisCacher) ClearIds(tableName string) {
-	// TODO
 	c.clearObjects(c.getSqlKey(tableName, "*"))
 }
 
@@ -194,7 +193,14 @@ func (c *RedisCacher) invoke(f func(string, ...interface{}) (interface{}, error)
 
 func serialize(value interface{}) ([]byte, error) {
 
-	RegisterGobConcreteType(value)
+	err := RegisterGobConcreteType(value)
+	if err != nil {
+		return nil, err
+	}
+
+	if reflect.TypeOf(value).Kind() == reflect.Struct {
+		return nil, fmt.Errorf("serialize func only take pointer of a struct")
+	}
 
 	var b bytes.Buffer
 	encoder := gob.NewEncoder(&b)
@@ -217,7 +223,7 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	return
 }
 
-func RegisterGobConcreteType(value interface{}) {
+func RegisterGobConcreteType(value interface{}) error {
 
 	t := reflect.TypeOf(value)
 
@@ -233,8 +239,9 @@ func RegisterGobConcreteType(value interface{}) {
 	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Bool, reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
 		// do nothing since already registered known type
 	default:
-		panic(fmt.Errorf("unhandled type: %v", t))
+		return fmt.Errorf("unhandled type: %v", t)
 	}
+	return nil
 }
 
 // interfaceEncode encodes the interface value into the encoder.
@@ -265,7 +272,8 @@ func interfaceDecode(dec *gob.Decoder) (interface{}, error) {
 	}
 	log.Printf("[xorm/redis_cacher] interfaceDecode type:%v", reflect.TypeOf(p))
 
-	if reflect.TypeOf(p).Kind() == reflect.Struct {
+	v := reflect.ValueOf(p)
+	if v.Kind() == reflect.Struct {
 		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
 	}
 
