@@ -38,7 +38,32 @@ func TestSerializationPtr(t *testing.T) {
 		t.Error(err)
 	}
 
-	log.Println(ptr, "type:", reflect.TypeOf(ptr).Kind())
+	log.Println(ptr, "type:", reflect.TypeOf(ptr))
+
+	if reflect.TypeOf(ptr).Kind() == reflect.Struct {
+		t.Error(fmt.Errorf("deserialize func should return pointer of a struct"))
+		t.FailNow()
+	}
+}
+
+func TestSerializationPtr2(t *testing.T) {
+
+	point := Point{X: 100, Y: -100}
+
+	bytes, err := serialize(&point)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	ptr := &Point{}
+	log.Println("b4:", ptr, "type:", reflect.TypeOf(ptr))
+	err = deserialize2(bytes, ptr)
+	if err != nil {
+		t.Error(err)
+	}
+
+	log.Println(ptr, "type:", reflect.TypeOf(ptr))
 
 	if reflect.TypeOf(ptr).Kind() == reflect.Struct {
 		t.Error(fmt.Errorf("deserialize func should return pointer of a struct"))

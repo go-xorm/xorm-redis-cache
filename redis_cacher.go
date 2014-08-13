@@ -100,6 +100,22 @@ func (c *RedisCacher) getObject(key string) interface{} {
 	return value
 }
 
+func (c *RedisCacher) getObject2(key string, ptr interface{}) error {
+	conn := c.pool.Get()
+	defer conn.Close()
+	raw, err := conn.Do("GET", key)
+	if raw == nil {
+		return err
+	}
+	item, err := redis.Bytes(raw, err)
+	if err != nil {
+		log.Fatalf("[xorm/redis_cacher] redis.Bytes failed: %s", err)
+		return err
+	}
+	err = deserialize2(item, ptr)
+	return err
+}
+
 func (c *RedisCacher) GetIds(tableName, sql string) interface{} {
 	log.Printf("[xorm/redis_cacher] GetIds|tableName:%s|sql:%s", tableName, sql)
 
@@ -109,6 +125,11 @@ func (c *RedisCacher) GetIds(tableName, sql string) interface{} {
 func (c *RedisCacher) GetBean(tableName string, id string) interface{} {
 	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s", tableName, id)
 	return c.getObject(c.getBeanKey(tableName, id))
+}
+
+func (c *RedisCacher) GetBean2(tableName string, id string, ptr interface{}) error {
+	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s", tableName, id)
+	return c.getObject2(c.getBeanKey(tableName, id), ptr)
 }
 
 func (c *RedisCacher) putObject(key string, value interface{}) {
@@ -223,6 +244,18 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	return
 }
 
+func deserialize2(byt []byte, ptr interface{}) (err error) {
+	b := bytes.NewBuffer(byt)
+	decoder := gob.NewDecoder(b)
+
+	if err = interfaceDecode2(decoder, ptr); err != nil {
+		log.Fatalf("[xorm/redis_cacher] gob decoding failed: %s", err)
+		return
+	}
+
+	return
+}
+
 func RegisterGobConcreteType(value interface{}) error {
 
 	t := reflect.TypeOf(value)
@@ -273,9 +306,33 @@ func interfaceDecode(dec *gob.Decoder) (interface{}, error) {
 	log.Printf("[xorm/redis_cacher] interfaceDecode type:%v", reflect.TypeOf(p))
 
 	v := reflect.ValueOf(p)
+
+	log.Printf("[xorm/redis_cacher] interfaceDecode type:%v | CanAddr:%t", v.Type(), v.CanAddr())
+
 	if v.Kind() == reflect.Struct {
 		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
+		// vv := reflect.New(v.Type())
+
+		// pp := vv.Interface()
+
+		// *pp = p
+
+		// log.Printf("[xorm/redis_cacher] interfaceDecode convert to ptr type:%v|%v", reflect.TypeOf(pp), pp)
 	}
 
 	return p, err
+}
+
+func interfaceDecode2(dec *gob.Decoder, p interface{}) error {
+	// The decode will fail unless the concrete type on the wire has been
+	// registered. We registered it in the calling function.
+
+	log.Printf("[xorm/redis_cacher] interfaceDecode2 type b4 decode:%v", reflect.TypeOf(p))
+	err := dec.Decode(&p)
+	if err != nil {
+		log.Fatal("[xorm/redis_cacher] decode:", err)
+	}
+	log.Printf("[xorm/redis_cacher] interfaceDecode2 type:%v", reflect.TypeOf(p))
+
+	return err
 }
