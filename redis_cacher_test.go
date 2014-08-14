@@ -177,29 +177,16 @@ func deserialize3(byt []byte, ptr *Point) (err error) {
 	b := bytes.NewBuffer(byt)
 	decoder := gob.NewDecoder(b)
 
-	if err = interfaceDecode3(decoder, ptr); err != nil {
-		log.Fatalf("[xorm/redis_cacher] gob decoding failed: %s", err)
-		return
-	}
+	log.Printf("[xorm/redis_cacher] deserialize3 type b4 decode:%v", reflect.TypeOf(ptr))
 
-	return
-}
-
-func interfaceDecode3(dec *gob.Decoder, ptr *Point) error {
-	// The decode will fail unless the concrete type on the wire has been
-	// registered. We registered it in the calling function.
-
-	log.Printf("[xorm/redis_cacher] interfaceDecode3 type b4 decode:%v", reflect.TypeOf(ptr))
-
-	err := dec.Decode(ptr)
+	err = decoder.Decode(ptr)
 	if err != nil {
 		log.Fatal("[xorm/redis_cacher] ", err)
 	}
 	// log.Printf("[xorm/redis_cacher] interfaceDecode3 type:%v", reflect.TypeOf(p))
 	// *ptr = p
-	log.Printf("[xorm/redis_cacher] interfaceDecode3 type:%v", reflect.TypeOf(ptr))
-
-	return err
+	log.Printf("[xorm/redis_cacher] deserialize3 type:%v", reflect.TypeOf(ptr))
+	return
 }
 
 func TestSerializationPtr4(t *testing.T) {
