@@ -245,14 +245,15 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 		log.Fatal("[xorm/redis_cacher] decode:", err)
 		return
 	}
-	ptr = &p
-	log.Printf("[xorm/redis_cacher] deserialize type:%v", reflect.TypeOf(ptr))
 
-	v := reflect.ValueOf(ptr)
-
-	log.Printf("[xorm/redis_cacher] deserialize type:%v | CanAddr:%t", v.Type(), v.CanAddr())
-
+	v := reflect.ValueOf(p)
 	if v.Kind() == reflect.Struct {
+
+		ptr = &p
+		log.Printf("[xorm/redis_cacher] deserialize type:%v", reflect.TypeOf(ptr))
+		vv := reflect.ValueOf(ptr)
+		log.Printf("[xorm/redis_cacher] deserialize type:%v | CanAddr:%t", vv.Type(), vv.CanAddr())
+
 		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
 		// vv := reflect.New(v.Type())
 
@@ -261,6 +262,8 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 		// *pp = p
 
 		// log.Printf("[xorm/redis_cacher] interfaceDecode convert to ptr type:%v|%v", reflect.TypeOf(pp), pp)
+	} else {
+		ptr = p
 	}
 	return
 }

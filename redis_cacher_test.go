@@ -47,11 +47,18 @@ func TestSerializationStruct(t *testing.T) {
 	}
 }
 
+var (
+	TEST_POINT = Point{X: 100, Y: -100}
+)
+
+func serializePoint() ([]byte, error) {
+	var point Point = TEST_POINT
+	return serialize(&point)
+}
+
 func TestSerializationPtr1(t *testing.T) {
 
-	point := Point{X: 100, Y: -100}
-
-	bytes, err := serialize(&point)
+	bytes, err := serializePoint()
 
 	if err != nil {
 		t.Error(err)
@@ -66,8 +73,8 @@ func TestSerializationPtr1(t *testing.T) {
 
 	if reflect.TypeOf(ptr).Kind() == reflect.Struct {
 
-		if ptr != point {
-			t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptr, point))
+		if ptr != TEST_POINT {
+			t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptr, TEST_POINT))
 			t.FailNow()
 		}
 		t.Error(fmt.Errorf("deserialize func should return pointer of a struct"))
@@ -76,8 +83,9 @@ func TestSerializationPtr1(t *testing.T) {
 
 	ptrElem := reflect.ValueOf(ptr).Elem().Interface()
 	log.Println(ptrElem, "elem type:", reflect.TypeOf(ptrElem), "can addr", reflect.ValueOf(ptrElem).CanAddr())
-	if ptrElem != point {
-		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptrElem, point))
+	// if ptrElem != point {
+	if ptrElem != TEST_POINT {
+		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptrElem, TEST_POINT))
 		t.FailNow()
 	}
 
@@ -88,7 +96,7 @@ func TestSerializationPtr1(t *testing.T) {
 
 	// !nashtsai! how to make following compile?
 	// pointPtrSlice := []*Point{}
-	// pointPtrSlice = append(pointPtrSlice, &(ptrElem.(Point)))
+	// pointPtrSlice = append(pointPtrSlice, ptr.(*Point))
 }
 
 func TestSerializationPtr2(t *testing.T) {
