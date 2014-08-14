@@ -225,7 +225,10 @@ func serialize(value interface{}) ([]byte, error) {
 
 	var b bytes.Buffer
 	encoder := gob.NewEncoder(&b)
-	if err := interfaceEncode(encoder, value); err != nil {
+
+	log.Printf("[xorm/redis_cacher] interfaceEncode type:%v", reflect.TypeOf(value))
+	err = encoder.Encode(value)
+	if err != nil {
 		log.Fatalf("[xorm/redis_cacher] gob encoding '%s' failed: %s", value, err)
 		return nil, err
 	}
@@ -278,23 +281,6 @@ func RegisterGobConcreteType(value interface{}) error {
 		return fmt.Errorf("unhandled type: %v", t)
 	}
 	return nil
-}
-
-// interfaceEncode encodes the interface value into the encoder.
-func interfaceEncode(enc *gob.Encoder, p interface{}) error {
-	// The encode will fail unless the concrete type has been
-	// registered. We registered it in the calling function.
-
-	// Pass pointer to interface so Encode sees (and hence sends) a value of
-	// interface type.  If we passed p directly it would see the concrete type instead.
-	// See the blog post, "The Laws of Reflection" for background.
-
-	log.Printf("[xorm/redis_cacher] interfaceEncode type:%v", reflect.TypeOf(p))
-	err := enc.Encode(&p)
-	if err != nil {
-		log.Fatal("[xorm/redis_cacher] encode:", err)
-	}
-	return err
 }
 
 // interfaceDecode decodes the next interface value from the stream and returns it.

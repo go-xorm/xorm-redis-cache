@@ -47,7 +47,7 @@ func TestSerializationStruct(t *testing.T) {
 	}
 }
 
-func TestSerializationPtr(t *testing.T) {
+func TestSerializationPtr1(t *testing.T) {
 
 	point := Point{X: 100, Y: -100}
 
