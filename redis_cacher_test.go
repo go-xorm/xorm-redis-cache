@@ -75,7 +75,7 @@ func TestSerializationPtr1(t *testing.T) {
 	}
 
 	ptrElem := reflect.ValueOf(ptr).Elem().Interface()
-	log.Println(ptrElem, "elem type:", reflect.TypeOf(ptrElem))
+	log.Println(ptrElem, "elem type:", reflect.TypeOf(ptrElem), "can addr", reflect.ValueOf(ptrElem).CanAddr())
 	if ptrElem != point {
 		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptrElem, point))
 		t.FailNow()
