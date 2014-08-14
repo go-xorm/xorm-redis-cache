@@ -80,6 +80,15 @@ func TestSerializationPtr1(t *testing.T) {
 		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptrElem, point))
 		t.FailNow()
 	}
+
+	points := []Point{}
+	points = append(points, ptrElem.(Point))
+
+	log.Println("points:%v", points)
+
+	// !nashtsai! how to make following compile?
+	// pointPtrSlice := []*Point{}
+	// pointPtrSlice = append(pointPtrSlice, &(ptrElem.(Point)))
 }
 
 func TestSerializationPtr2(t *testing.T) {
