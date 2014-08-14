@@ -227,7 +227,7 @@ func serialize(value interface{}) ([]byte, error) {
 	encoder := gob.NewEncoder(&b)
 
 	log.Printf("[xorm/redis_cacher] interfaceEncode type:%v", reflect.TypeOf(value))
-	err = encoder.Encode(value)
+	err = encoder.Encode(&value)
 	if err != nil {
 		log.Fatalf("[xorm/redis_cacher] gob encoding '%s' failed: %s", value, err)
 		return nil, err
@@ -239,11 +239,29 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	b := bytes.NewBuffer(byt)
 	decoder := gob.NewDecoder(b)
 
-	if ptr, err = interfaceDecode(decoder); err != nil {
-		log.Fatalf("[xorm/redis_cacher] gob decoding failed: %s", err)
+	var p interface{}
+	err = decoder.Decode(&p)
+	if err != nil {
+		log.Fatal("[xorm/redis_cacher] decode:", err)
 		return
 	}
+	ptr = &p
+	log.Printf("[xorm/redis_cacher] deserialize type:%v", reflect.TypeOf(ptr))
 
+	v := reflect.ValueOf(ptr)
+
+	log.Printf("[xorm/redis_cacher] deserialize type:%v | CanAddr:%t", v.Type(), v.CanAddr())
+
+	if v.Kind() == reflect.Struct {
+		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
+		// vv := reflect.New(v.Type())
+
+		// pp := vv.Interface()
+
+		// *pp = p
+
+		// log.Printf("[xorm/redis_cacher] interfaceDecode convert to ptr type:%v|%v", reflect.TypeOf(pp), pp)
+	}
 	return
 }
 
@@ -281,33 +299,4 @@ func RegisterGobConcreteType(value interface{}) error {
 		return fmt.Errorf("unhandled type: %v", t)
 	}
 	return nil
-}
-
-// interfaceDecode decodes the next interface value from the stream and returns it.
-func interfaceDecode(dec *gob.Decoder) (interface{}, error) {
-	// The decode will fail unless the concrete type on the wire has been
-	// registered. We registered it in the calling function.
-	var p interface{}
-	err := dec.Decode(&p)
-	if err != nil {
-		log.Fatal("[xorm/redis_cacher] decode:", err)
-	}
-	log.Printf("[xorm/redis_cacher] interfaceDecode type:%v", reflect.TypeOf(p))
-
-	v := reflect.ValueOf(p)
-
-	log.Printf("[xorm/redis_cacher] interfaceDecode type:%v | CanAddr:%t", v.Type(), v.CanAddr())
-
-	if v.Kind() == reflect.Struct {
-		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
-		// vv := reflect.New(v.Type())
-
-		// pp := vv.Interface()
-
-		// *pp = p
-
-		// log.Printf("[xorm/redis_cacher] interfaceDecode convert to ptr type:%v|%v", reflect.TypeOf(pp), pp)
-	}
-
-	return p, err
 }

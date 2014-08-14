@@ -62,7 +62,7 @@ func TestSerializationPtr1(t *testing.T) {
 		t.Error(err)
 	}
 
-	log.Println(ptr, "type:", reflect.TypeOf(ptr))
+	log.Println(ptr, "ptr type:", reflect.TypeOf(ptr))
 
 	if reflect.TypeOf(ptr).Kind() == reflect.Struct {
 
@@ -75,7 +75,7 @@ func TestSerializationPtr1(t *testing.T) {
 	}
 
 	ptrElem := reflect.ValueOf(ptr).Elem().Interface()
-
+	log.Println(ptrElem, "elem type:", reflect.TypeOf(ptrElem))
 	if ptrElem != point {
 		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", ptrElem, point))
 		t.FailNow()
@@ -92,8 +92,8 @@ func TestSerializationPtr2(t *testing.T) {
 		t.Error(err)
 	}
 
-	pointDec := Point{}
-	err = deserialize2(bytes, &pointDec)
+	var pointDec *Point
+	err = deserialize2(bytes, pointDec)
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
@@ -101,7 +101,7 @@ func TestSerializationPtr2(t *testing.T) {
 
 	log.Println(pointDec, "type:", reflect.TypeOf(pointDec))
 
-	if pointDec != point {
+	if *pointDec != point {
 		t.Error(fmt.Errorf("decoded value:%v not identical to value:%v", pointDec, point))
 		t.FailNow()
 	}
