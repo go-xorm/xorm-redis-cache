@@ -5,7 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	//"github.com/go-xorm/core"
+	"github.com/go-xorm/core"
 	"hash/crc32"
 	"log"
 	"reflect"
@@ -68,7 +68,7 @@ func exists(conn redis.Conn, key string) bool {
 
 func (c *RedisCacher) getBeanKey(tableName string, id string) string {
 
-	beanKey := fmt.Sprintf("bean:%s:%s", tableName, id)
+	beanKey := fmt.Sprintf("xorm:bean:%s:%s", tableName, id)
 	log.Printf("[xorm/redis_cacher] getBeanKey: [%s]", beanKey)
 	return beanKey
 }
@@ -77,16 +77,17 @@ func (c *RedisCacher) getSqlKey(tableName string, sql string) string {
 	// hash sql to minimize key length
 	crc := crc32.ChecksumIEEE([]byte(sql))
 
-	sqlKey := fmt.Sprintf("sql:%s:%d", tableName, crc)
+	sqlKey := fmt.Sprintf("xorm:sql:%s:%d", tableName, crc)
 	log.Printf("[xorm/redis_cacher] getSqlKey: [%s]", sqlKey)
 	return sqlKey
 }
 
 func (c *RedisCacher) Flush() error {
-	conn := c.pool.Get()
-	defer conn.Close()
-	_, err := conn.Do("FLUSHALL")
-	return err
+	// conn := c.pool.Get()
+	// defer conn.Close()
+	// _, err := conn.Do("FLUSHALL")
+	// return err
+	return c.delObject("xorm:*")
 }
 
 func (c *RedisCacher) getObject(key string) interface{} {
@@ -154,16 +155,35 @@ func (c *RedisCacher) PutBean(tableName string, id string, obj interface{}) {
 	c.putObject(c.getBeanKey(tableName, id), obj)
 }
 
-func (c *RedisCacher) delObject(key string) {
+func (c *RedisCacher) delObject(key string) error {
+	log.Printf("[xorm/redis_cacher] delObject key:[%s]", key)
+
 	conn := c.pool.Get()
 	defer conn.Close()
 	if !exists(conn, key) {
-		return // core.ErrCacheMiss
+		log.Printf("[xorm/redis_cacher] delObject: %v", core.ErrCacheMiss)
+		return core.ErrCacheMiss
 	}
-	conn.Do("DEL", key)
+	_, err := conn.Do("DEL", key)
+	return err
+}
 
-	// _, err := conn.Do("DEL", key)
-	// return err
+func (c *RedisCacher) delObjects(key string) error {
+
+	log.Printf("[xorm/redis_cacher] delObjects key:[%s]", key)
+
+	conn := c.pool.Get()
+	defer conn.Close()
+
+	keys, err := conn.Do("KEYS", key)
+	log.Printf("[xorm/redis_cacher] delObjects keys: %v", keys)
+
+	if err == nil {
+		for _, key := range keys.([]interface{}) {
+			conn.Do("DEL", key)
+		}
+	}
+	return err
 }
 
 func (c *RedisCacher) DelIds(tableName, sql string) {
@@ -174,24 +194,12 @@ func (c *RedisCacher) DelBean(tableName string, id string) {
 	c.delObject(c.getBeanKey(tableName, id))
 }
 
-func (c *RedisCacher) clearObjects(key string) {
-	conn := c.pool.Get()
-	defer conn.Close()
-	if exists(conn, key) {
-		// _, err := conn.Do("DEL", key)
-		// return err
-		conn.Do("DEL", key)
-	} else {
-		// return ErrCacheMiss
-	}
-}
-
 func (c *RedisCacher) ClearIds(tableName string) {
-	c.clearObjects(c.getSqlKey(tableName, "*"))
+	c.delObjects(c.getSqlKey(tableName, "*"))
 }
 
 func (c *RedisCacher) ClearBeans(tableName string) {
-	c.clearObjects(c.getBeanKey(tableName, "*"))
+	c.delObjects(c.getBeanKey(tableName, "*"))
 }
 
 func (c *RedisCacher) invoke(f func(string, ...interface{}) (interface{}, error),
