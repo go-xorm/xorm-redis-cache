@@ -11,6 +11,7 @@ import (
 	"reflect"
 	// "strconv"
 	"time"
+	"unsafe"
 )
 
 const (
@@ -66,13 +67,19 @@ func exists(conn redis.Conn, key string) bool {
 }
 
 func (c *RedisCacher) getBeanKey(tableName string, id string) string {
-	return fmt.Sprintf("bean:%s:%s", tableName, id)
+
+	beanKey := fmt.Sprintf("bean:%s:%s", tableName, id)
+	log.Printf("[xorm/redis_cacher] getBeanKey: [%s]", beanKey)
+	return beanKey
 }
 
 func (c *RedisCacher) getSqlKey(tableName string, sql string) string {
 	// hash sql to minimize key length
 	crc := crc32.ChecksumIEEE([]byte(sql))
-	return fmt.Sprintf("sql:%s:%d", tableName, crc)
+
+	sqlKey := fmt.Sprintf("sql:%s:%d", tableName, crc)
+	log.Printf("[xorm/redis_cacher] getSqlKey: [%s]", sqlKey)
+	return sqlKey
 }
 
 func (c *RedisCacher) Flush() error {
@@ -247,21 +254,20 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	}
 
 	v := reflect.ValueOf(p)
+	log.Printf("[xorm/redis_cacher] deserialize type:%v", v.Type())
 	if v.Kind() == reflect.Struct {
 
-		ptr = &p
-		log.Printf("[xorm/redis_cacher] deserialize type:%v", reflect.TypeOf(ptr))
+		// !nashtsai! TODO following implementation will new an instance and make a copy,
+		// hence performance degration
+		var pp interface{} = &p
+		datas := reflect.ValueOf(pp).Elem().InterfaceData()
+
+		sp := reflect.NewAt(v.Type(),
+			unsafe.Pointer(datas[1])).Interface()
+		ptr = sp
 		vv := reflect.ValueOf(ptr)
-		log.Printf("[xorm/redis_cacher] deserialize type:%v | CanAddr:%t", vv.Type(), vv.CanAddr())
-
-		// TODO need to convert p to pointer of struct, however, encountered reflect.ValueOf(p).CanAddr() == false
-		// vv := reflect.New(v.Type())
-
-		// pp := vv.Interface()
-
-		// *pp = p
-
-		// log.Printf("[xorm/redis_cacher] interfaceDecode convert to ptr type:%v|%v", reflect.TypeOf(pp), pp)
+		log.Printf("[xorm/redis_cacher] deserialize convert ptr type:%v | CanAddr:%t", vv.Type(), vv.CanAddr())
+		// --
 	} else {
 		ptr = p
 	}

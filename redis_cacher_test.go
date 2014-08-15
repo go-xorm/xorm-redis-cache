@@ -7,7 +7,7 @@ import (
 	"log"
 	"reflect"
 	"testing"
-	"unsafe"
+	// "unsafe"
 )
 
 type Point struct {
@@ -99,15 +99,15 @@ func TestSerializationPtr1(t *testing.T) {
 	// pointPtrSlice := []*Point{}
 	// pointPtrSlice = append(pointPtrSlice, ptr.(*Point))
 
-	datas := reflect.ValueOf(ptr).Elem().InterfaceData()
-	fmt.Println("data:", datas[0], datas[1])
+	// datas := reflect.ValueOf(ptr).Elem().InterfaceData()
+	// fmt.Println("data:", datas[0], datas[1])
 
-	sp := reflect.NewAt(reflect.TypeOf(ptrElem),
-		unsafe.Pointer(datas[1])).Interface()
-	fmt.Println("sp:", sp, sp.(*Point))
+	// sp := reflect.NewAt(reflect.TypeOf(ptrElem),
+	// 	unsafe.Pointer(datas[1])).Interface()
+	// fmt.Println("sp:", sp, sp.(*Point))
 
 	pointPtrSlice := []*Point{}
-	pointPtrSlice = append(pointPtrSlice, sp.(*Point))
+	pointPtrSlice = append(pointPtrSlice, ptr.(*Point))
 }
 
 func TestSerializationPtr2(t *testing.T) {
