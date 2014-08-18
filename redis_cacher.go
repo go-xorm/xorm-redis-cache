@@ -67,19 +67,13 @@ func exists(conn redis.Conn, key string) bool {
 }
 
 func (c *RedisCacher) getBeanKey(tableName string, id string) string {
-
-	beanKey := fmt.Sprintf("xorm:bean:%s:%s", tableName, id)
-	log.Printf("[xorm/redis_cacher] getBeanKey: [%s]", beanKey)
-	return beanKey
+	return fmt.Sprintf("xorm:bean:%s:%s", tableName, id)
 }
 
 func (c *RedisCacher) getSqlKey(tableName string, sql string) string {
 	// hash sql to minimize key length
 	crc := crc32.ChecksumIEEE([]byte(sql))
-
-	sqlKey := fmt.Sprintf("xorm:sql:%s:%d", tableName, crc)
-	log.Printf("[xorm/redis_cacher] getSqlKey: [%s]", sqlKey)
-	return sqlKey
+	return fmt.Sprintf("xorm:sql:%s:%d", tableName, crc)
 }
 
 func (c *RedisCacher) Flush() error {
@@ -125,19 +119,21 @@ func (c *RedisCacher) getObject2(key string, ptr interface{}) error {
 }
 
 func (c *RedisCacher) GetIds(tableName, sql string) interface{} {
-	log.Printf("[xorm/redis_cacher] GetIds|tableName:%s|sql:%s", tableName, sql)
-
-	return c.getObject(c.getSqlKey(tableName, sql))
+	sqlKey := c.getSqlKey(tableName, sql)
+	log.Printf("[xorm/redis_cacher] GetIds|tableName:%s|sql:%s|key:%s", tableName, sql, sqlKey)
+	return c.getObject(sqlKey)
 }
 
 func (c *RedisCacher) GetBean(tableName string, id string) interface{} {
-	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s", tableName, id)
-	return c.getObject(c.getBeanKey(tableName, id))
+	beanKey := c.getBeanKey(tableName, id)
+	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
+	return c.getObject(beanKey)
 }
 
 func (c *RedisCacher) GetBean2(tableName string, id string, ptr interface{}) error {
-	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s", tableName, id)
-	return c.getObject2(c.getBeanKey(tableName, id), ptr)
+	beanKey := c.getBeanKey(tableName, id)
+	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
+	return c.getObject2(beanKey, ptr)
 }
 
 func (c *RedisCacher) putObject(key string, value interface{}) {
@@ -145,14 +141,15 @@ func (c *RedisCacher) putObject(key string, value interface{}) {
 }
 
 func (c *RedisCacher) PutIds(tableName, sql string, ids interface{}) {
-	log.Printf("[xorm/redis_cacher] PutIds|tableName:%s|sql:%s|type:%v", tableName, sql, reflect.TypeOf(ids))
-
-	c.putObject(c.getSqlKey(tableName, sql), ids)
+	sqlKey := c.getSqlKey(tableName, sql)
+	log.Printf("[xorm/redis_cacher] PutIds|tableName:%s|sql:%s|key:%s|obj:%s|type:%v", tableName, sql, sqlKey, ids, reflect.TypeOf(ids))
+	c.putObject(sqlKey, ids)
 }
 
 func (c *RedisCacher) PutBean(tableName string, id string, obj interface{}) {
-	log.Printf("[xorm/redis_cacher] PutBean|tableName:%s|id:%s|type:%v", tableName, id, reflect.TypeOf(obj))
-	c.putObject(c.getBeanKey(tableName, id), obj)
+	beanKey := c.getBeanKey(tableName, id)
+	log.Printf("[xorm/redis_cacher] PutBean|tableName:%s|id:%s|key:%s|type:%v", tableName, id, beanKey, reflect.TypeOf(obj))
+	c.putObject(beanKey, obj)
 }
 
 func (c *RedisCacher) delObject(key string) error {
