@@ -241,7 +241,7 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	if v.Kind() == reflect.Struct {
 
 		// !nashtsai! TODO following implementation will new an instance and make a copy,
-		// hence performance degration
+		// hence performance degradation
 		var pp interface{} = &p
 		datas := reflect.ValueOf(pp).Elem().InterfaceData()
 
