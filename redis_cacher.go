@@ -102,22 +102,6 @@ func (c *RedisCacher) getObject(key string) interface{} {
 	return value
 }
 
-func (c *RedisCacher) getObject2(key string, ptr interface{}) error {
-	conn := c.pool.Get()
-	defer conn.Close()
-	raw, err := conn.Do("GET", key)
-	if raw == nil {
-		return err
-	}
-	item, err := redis.Bytes(raw, err)
-	if err != nil {
-		log.Fatalf("[xorm/redis_cacher] redis.Bytes failed: %s", err)
-		return err
-	}
-	err = deserialize2(item, ptr)
-	return err
-}
-
 func (c *RedisCacher) GetIds(tableName, sql string) interface{} {
 	sqlKey := c.getSqlKey(tableName, sql)
 	log.Printf("[xorm/redis_cacher] GetIds|tableName:%s|sql:%s|key:%s", tableName, sql, sqlKey)
@@ -128,12 +112,6 @@ func (c *RedisCacher) GetBean(tableName string, id string) interface{} {
 	beanKey := c.getBeanKey(tableName, id)
 	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
 	return c.getObject(beanKey)
-}
-
-func (c *RedisCacher) GetBean2(tableName string, id string, ptr interface{}) error {
-	beanKey := c.getBeanKey(tableName, id)
-	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
-	return c.getObject2(beanKey, ptr)
 }
 
 func (c *RedisCacher) putObject(key string, value interface{}) {
@@ -276,21 +254,6 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 	} else {
 		ptr = p
 	}
-	return
-}
-
-func deserialize2(byt []byte, ptr interface{}) (err error) {
-	b := bytes.NewBuffer(byt)
-	decoder := gob.NewDecoder(b)
-
-	log.Printf("[xorm/redis_cacher] deserialize2 type b4 decode:%v", reflect.TypeOf(ptr))
-
-	err = decoder.Decode(ptr)
-	if err != nil {
-		return
-	}
-	log.Printf("[xorm/redis_cacher] deserialize2 type:%v", reflect.TypeOf(ptr))
-
 	return
 }
 
