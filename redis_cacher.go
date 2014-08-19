@@ -241,7 +241,7 @@ func serialize(value interface{}) ([]byte, error) {
 	log.Printf("[xorm/redis_cacher] serialize type:%v", reflect.TypeOf(value))
 	err = encoder.Encode(&value)
 	if err != nil {
-		log.Fatalf("[xorm/redis_cacher] gob encoding '%s' failed: %s", value, err)
+		log.Fatalf("[xorm/redis_cacher] gob encoding '%s' failed: %s|value:%v", value, err, value)
 		return nil, err
 	}
 	return b.Bytes(), nil
