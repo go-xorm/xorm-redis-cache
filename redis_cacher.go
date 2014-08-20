@@ -7,7 +7,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/go-xorm/core"
 	"hash/crc32"
-	"log"
+	// "log"
 	"reflect"
 	// "strconv"
 	"time"
@@ -17,16 +17,20 @@ import (
 const (
 	DEFAULT_EXPIRATION = time.Duration(0)
 	FOREVER_EXPIRATION = time.Duration(-1)
+
+	LOGGING_PREFIX = "[redis_cacher]"
 )
 
 // Wraps the Redis client to meet the Cache interface.
 type RedisCacher struct {
 	pool              *redis.Pool
 	defaultExpiration time.Duration
+
+	Logger core.ILogger
 }
 
 // until redigo supports sharding/clustering, only one host will be in hostList
-func NewRedisCacher(host string, password string, defaultExpiration time.Duration) *RedisCacher {
+func NewRedisCacher(host string, password string, logger core.ILogger, defaultExpiration time.Duration) *RedisCacher {
 	var pool = &redis.Pool{
 		MaxIdle:     5,
 		IdleTimeout: 240 * time.Second,
@@ -58,12 +62,24 @@ func NewRedisCacher(host string, password string, defaultExpiration time.Duratio
 			return nil
 		},
 	}
-	return &RedisCacher{pool, defaultExpiration}
+	return &RedisCacher{pool: pool, defaultExpiration: defaultExpiration, Logger: logger}
 }
 
 func exists(conn redis.Conn, key string) bool {
 	existed, _ := redis.Bool(conn.Do("EXISTS", key))
 	return existed
+}
+
+func (c *RedisCacher) logErrf(format string, contents ...interface{}) {
+	if c.Logger != nil {
+		c.Logger.Errf(fmt.Sprintf("%s %s", LOGGING_PREFIX, format), contents...)
+	}
+}
+
+func (c *RedisCacher) logDebugf(format string, contents ...interface{}) {
+	if c.Logger != nil {
+		c.Logger.Debugf(fmt.Sprintf("%s %s", LOGGING_PREFIX, format), contents...)
+	}
 }
 
 func (c *RedisCacher) getBeanKey(tableName string, id string) string {
@@ -93,24 +109,24 @@ func (c *RedisCacher) getObject(key string) interface{} {
 	}
 	item, err := redis.Bytes(raw, err)
 	if err != nil {
-		log.Fatalf("[xorm/redis_cacher] redis.Bytes failed: %s", err)
+		c.logErrf("redis.Bytes failed: %s", err)
 		return nil
 	}
 
-	value, err := deserialize(item)
+	value, err := c.deserialize(item)
 
 	return value
 }
 
 func (c *RedisCacher) GetIds(tableName, sql string) interface{} {
 	sqlKey := c.getSqlKey(tableName, sql)
-	log.Printf("[xorm/redis_cacher] GetIds|tableName:%s|sql:%s|key:%s", tableName, sql, sqlKey)
+	c.logDebugf(" GetIds|tableName:%s|sql:%s|key:%s", tableName, sql, sqlKey)
 	return c.getObject(sqlKey)
 }
 
 func (c *RedisCacher) GetBean(tableName string, id string) interface{} {
 	beanKey := c.getBeanKey(tableName, id)
-	log.Printf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
+	c.logDebugf("[xorm/redis_cacher] GetBean|tableName:%s|id:%s|key:%s", tableName, id, beanKey)
 	return c.getObject(beanKey)
 }
 
@@ -120,23 +136,23 @@ func (c *RedisCacher) putObject(key string, value interface{}) {
 
 func (c *RedisCacher) PutIds(tableName, sql string, ids interface{}) {
 	sqlKey := c.getSqlKey(tableName, sql)
-	log.Printf("[xorm/redis_cacher] PutIds|tableName:%s|sql:%s|key:%s|obj:%s|type:%v", tableName, sql, sqlKey, ids, reflect.TypeOf(ids))
+	c.logDebugf("PutIds|tableName:%s|sql:%s|key:%s|obj:%s|type:%v", tableName, sql, sqlKey, ids, reflect.TypeOf(ids))
 	c.putObject(sqlKey, ids)
 }
 
 func (c *RedisCacher) PutBean(tableName string, id string, obj interface{}) {
 	beanKey := c.getBeanKey(tableName, id)
-	log.Printf("[xorm/redis_cacher] PutBean|tableName:%s|id:%s|key:%s|type:%v", tableName, id, beanKey, reflect.TypeOf(obj))
+	c.logDebugf("PutBean|tableName:%s|id:%s|key:%s|type:%v", tableName, id, beanKey, reflect.TypeOf(obj))
 	c.putObject(beanKey, obj)
 }
 
 func (c *RedisCacher) delObject(key string) error {
-	log.Printf("[xorm/redis_cacher] delObject key:[%s]", key)
+	c.logDebugf("delObject key:[%s]", key)
 
 	conn := c.pool.Get()
 	defer conn.Close()
 	if !exists(conn, key) {
-		log.Printf("[xorm/redis_cacher] delObject: %v", core.ErrCacheMiss)
+		c.logErrf("delObject key:[%s] err: %v", key, core.ErrCacheMiss)
 		return core.ErrCacheMiss
 	}
 	_, err := conn.Do("DEL", key)
@@ -145,13 +161,13 @@ func (c *RedisCacher) delObject(key string) error {
 
 func (c *RedisCacher) delObjects(key string) error {
 
-	log.Printf("[xorm/redis_cacher] delObjects key:[%s]", key)
+	c.logDebugf("delObjects key:[%s]", key)
 
 	conn := c.pool.Get()
 	defer conn.Close()
 
 	keys, err := conn.Do("KEYS", key)
-	log.Printf("[xorm/redis_cacher] delObjects keys: %v", keys)
+	c.logDebugf("delObjects keys: %v", keys)
 
 	if err == nil {
 		for _, key := range keys.([]interface{}) {
@@ -187,7 +203,7 @@ func (c *RedisCacher) invoke(f func(string, ...interface{}) (interface{}, error)
 		expires = time.Duration(0)
 	}
 
-	b, err := serialize(value)
+	b, err := c.serialize(value)
 	if err != nil {
 		return err
 	}
@@ -202,9 +218,9 @@ func (c *RedisCacher) invoke(f func(string, ...interface{}) (interface{}, error)
 	}
 }
 
-func serialize(value interface{}) ([]byte, error) {
+func (c *RedisCacher) serialize(value interface{}) ([]byte, error) {
 
-	err := RegisterGobConcreteType(value)
+	err := c.registerGobConcreteType(value)
 	if err != nil {
 		return nil, err
 	}
@@ -216,32 +232,30 @@ func serialize(value interface{}) ([]byte, error) {
 	var b bytes.Buffer
 	encoder := gob.NewEncoder(&b)
 
-	log.Printf("[xorm/redis_cacher] serialize type:%v", reflect.TypeOf(value))
+	c.logDebugf("serialize type:%v", reflect.TypeOf(value))
 	err = encoder.Encode(&value)
 	if err != nil {
-		log.Fatalf("[xorm/redis_cacher] gob encoding '%s' failed: %s|value:%v", value, err, value)
+		c.logErrf("gob encoding '%s' failed: %s|value:%v", value, err, value)
 		return nil, err
 	}
 	return b.Bytes(), nil
 }
 
-func deserialize(byt []byte) (ptr interface{}, err error) {
+func (c *RedisCacher) deserialize(byt []byte) (ptr interface{}, err error) {
 	b := bytes.NewBuffer(byt)
 	decoder := gob.NewDecoder(b)
 
 	var p interface{}
 	err = decoder.Decode(&p)
 	if err != nil {
-		log.Fatal("[xorm/redis_cacher] decode:", err)
+		c.logErrf("decode failed: %v", err)
 		return
 	}
 
 	v := reflect.ValueOf(p)
-	log.Printf("[xorm/redis_cacher] deserialize type:%v", v.Type())
+	c.logDebugf("deserialize type:%v", v.Type())
 	if v.Kind() == reflect.Struct {
 
-		// !nashtsai! TODO following implementation will new an instance and make a copy,
-		// hence performance degradation
 		var pp interface{} = &p
 		datas := reflect.ValueOf(pp).Elem().InterfaceData()
 
@@ -249,19 +263,18 @@ func deserialize(byt []byte) (ptr interface{}, err error) {
 			unsafe.Pointer(datas[1])).Interface()
 		ptr = sp
 		vv := reflect.ValueOf(ptr)
-		log.Printf("[xorm/redis_cacher] deserialize convert ptr type:%v | CanAddr:%t", vv.Type(), vv.CanAddr())
-		// --
+		c.logDebugf("deserialize convert ptr type:%v | CanAddr:%t", vv.Type(), vv.CanAddr())
 	} else {
 		ptr = p
 	}
 	return
 }
 
-func RegisterGobConcreteType(value interface{}) error {
+func (c *RedisCacher) registerGobConcreteType(value interface{}) error {
 
 	t := reflect.TypeOf(value)
 
-	log.Printf("[xorm/redis_cacher] RegisterGobConcreteType:%v", t)
+	c.logDebugf("registerGobConcreteType:%v", t)
 
 	switch t.Kind() {
 	case reflect.Ptr:
