@@ -29,7 +29,16 @@ type RedisCacher struct {
 	Logger core.ILogger
 }
 
-// until redigo supports sharding/clustering, only one host will be in hostList
+// New a Redis Cacher, host as IP endpoint, i.e., localhost:6379, provide empty string or nil if Redis server doesn't
+// require AUTH command, defaultExpiration sets the expire duration for a key to live. Until redigo supports
+// sharding/clustering, only one host will be in hostList
+//
+//     engine.SetDefaultCacher(xormrediscache.NewRedisCacher("localhost:6379", "", xormrediscache.DEFAULT_EXPIRATION, engine.Logger))
+//
+// or set MapCacher
+//
+//     engine.MapCacher(&user, xormrediscache.NewRedisCacher("localhost:6379", "", xormrediscache.DEFAULT_EXPIRATION, engine.Logger))
+//
 func NewRedisCacher(host string, password string, defaultExpiration time.Duration, logger core.ILogger) *RedisCacher {
 	var pool = &redis.Pool{
 		MaxIdle:     5,
@@ -92,6 +101,7 @@ func (c *RedisCacher) getSqlKey(tableName string, sql string) string {
 	return fmt.Sprintf("xorm:sql:%s:%d", tableName, crc)
 }
 
+// Delete all xorm cached objects
 func (c *RedisCacher) Flush() error {
 	// conn := c.pool.Get()
 	// defer conn.Close()
