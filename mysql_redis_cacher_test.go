@@ -28,7 +28,7 @@ func TestMysqlWithCache(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	engine.SetDefaultCacher(NewRedisCacher1())
+	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
 	engine.ShowSQL = ShowTestSql
 	engine.ShowErr = ShowTestSql
 	engine.ShowWarn = ShowTestSql
@@ -53,7 +53,7 @@ func TestMysqlWithCacheSameMapper(t *testing.T) {
 		return
 	}
 	engine.SetMapper(core.SameMapper{})
-	engine.SetDefaultCacher(NewRedisCacher1())
+	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
 	engine.ShowSQL = ShowTestSql
 	engine.ShowErr = ShowTestSql
 	engine.ShowWarn = ShowTestSql
@@ -66,6 +66,14 @@ func TestMysqlWithCacheSameMapper(t *testing.T) {
 
 func newMysqlEngine() (*xorm.Engine, error) {
 	return xorm.NewEngine("mysql", "root:@/xorm_test?charset=utf8")
+}
+
+func newMysqlEngineWithCacher() (*xorm.Engine, error) {
+	engine, err := newMysqlEngine()
+	if err == nil {
+		engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
+	}
+	return engine, err
 }
 
 func mysqlDdlImport() error {
@@ -99,41 +107,34 @@ func BenchmarkMysqlDriverFind(t *testing.B) {
 }
 
 func BenchmarkMysqlCacheInsert(t *testing.B) {
-	engine, err := newMysqlEngine()
+	engine, err := newMysqlEngineWithCacher()
 	defer engine.Close()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	engine.SetDefaultCacher(NewRedisCacher1())
 
 	DoBenchInsert(engine, t)
 }
 
 func BenchmarkMysqlCacheFind(t *testing.B) {
-	engine, err := newMysqlEngine()
+	engine, err := newMysqlEngineWithCacher()
 	defer engine.Close()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	engine.SetDefaultCacher(NewRedisCacher1())
 
 	DoBenchFind(engine, t)
 }
 
 func BenchmarkMysqlCacheFindPtr(t *testing.B) {
-	engine, err := newMysqlEngine()
+	engine, err := newMysqlEngineWithCacher()
 	defer engine.Close()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	engine.SetDefaultCacher(NewRedisCacher1())
 
 	DoBenchFindPtr(engine, t)
-}
-
-func NewRedisCacher1() core.Cacher {
-	return NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION)
 }

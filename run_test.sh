@@ -1,4 +1,3 @@
-go test -v -run=TestSerialization
 redis-cli FLUSHALL
 if [ $? == "0" ];then
     go test -v -run=TestMysqlWithCache

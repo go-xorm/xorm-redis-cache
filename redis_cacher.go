@@ -30,7 +30,7 @@ type RedisCacher struct {
 }
 
 // until redigo supports sharding/clustering, only one host will be in hostList
-func NewRedisCacher(host string, password string, logger core.ILogger, defaultExpiration time.Duration) *RedisCacher {
+func NewRedisCacher(host string, password string, defaultExpiration time.Duration, logger core.ILogger) *RedisCacher {
 	var pool = &redis.Pool{
 		MaxIdle:     5,
 		IdleTimeout: 240 * time.Second,
