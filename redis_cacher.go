@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"hash/crc32"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/go-xorm/core"
-	"hash/crc32"
 	// "log"
 	"reflect"
 	// "strconv"
@@ -81,7 +82,7 @@ func exists(conn redis.Conn, key string) bool {
 
 func (c *RedisCacher) logErrf(format string, contents ...interface{}) {
 	if c.Logger != nil {
-		c.Logger.Errf(fmt.Sprintf("%s %s", LOGGING_PREFIX, format), contents...)
+		c.Logger.Errorf(fmt.Sprintf("%s %s", LOGGING_PREFIX, format), contents...)
 	}
 }
 
@@ -290,7 +291,7 @@ func (c *RedisCacher) registerGobConcreteType(value interface{}) error {
 	case reflect.Ptr:
 		v := reflect.ValueOf(value)
 		i := v.Elem().Interface()
-		gob.Register(i)
+		gob.Register(&i)
 	case reflect.Struct, reflect.Map, reflect.Slice:
 		gob.Register(value)
 	case reflect.String, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Bool, reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:

@@ -2,6 +2,7 @@ package xormrediscache
 
 import (
 	"database/sql"
+	_ "encoding/gob"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -14,7 +15,6 @@ import (
 CREATE DATABASE IF NOT EXISTS xorm_test CHARACTER SET
 utf8 COLLATE utf8_general_ci;
 */
-
 func TestMysqlWithCache(t *testing.T) {
 	err := mysqlDdlImport()
 	if err != nil {
@@ -28,11 +28,9 @@ func TestMysqlWithCache(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
-	engine.ShowSQL = ShowTestSql
-	engine.ShowErr = ShowTestSql
-	engine.ShowWarn = ShowTestSql
-	engine.ShowDebug = ShowTestSql
+	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger()))
+	engine.ShowSQL(true)
+	engine.Logger().SetLevel(core.LOG_DEBUG)
 
 	BaseTestAll(engine, t)
 	BaseTestAllSnakeMapper(engine, t)
@@ -53,11 +51,9 @@ func TestMysqlWithCacheSameMapper(t *testing.T) {
 		return
 	}
 	engine.SetMapper(core.SameMapper{})
-	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
-	engine.ShowSQL = ShowTestSql
-	engine.ShowErr = ShowTestSql
-	engine.ShowWarn = ShowTestSql
-	engine.ShowDebug = ShowTestSql
+	engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger()))
+	engine.ShowSQL(true)
+	engine.Logger().SetLevel(core.LOG_DEBUG)
 
 	BaseTestAll(engine, t)
 	BaseTestAllSameMapper(engine, t)
@@ -71,7 +67,7 @@ func newMysqlEngine() (*xorm.Engine, error) {
 func newMysqlEngineWithCacher() (*xorm.Engine, error) {
 	engine, err := newMysqlEngine()
 	if err == nil {
-		engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger))
+		engine.SetDefaultCacher(NewRedisCacher("localhost:6379", "", DEFAULT_EXPIRATION, engine.Logger()))
 	}
 	return engine, err
 }
@@ -81,13 +77,11 @@ func mysqlDdlImport() error {
 	if err != nil {
 		return err
 	}
-	engine.ShowSQL = ShowTestSql
-	engine.ShowErr = ShowTestSql
-	engine.ShowWarn = ShowTestSql
-	engine.ShowDebug = ShowTestSql
+	engine.ShowSQL(true)
+	engine.Logger().SetLevel(core.LOG_DEBUG)
 
 	sqlResults, _ := engine.ImportFile("../testdata/mysql_ddl.sql")
-	engine.LogDebug("sql results: %v", sqlResults)
+	engine.Logger().Debugf("sql results: %v", sqlResults)
 	engine.Close()
 	return nil
 }
