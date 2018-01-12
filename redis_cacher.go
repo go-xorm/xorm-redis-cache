@@ -301,3 +301,12 @@ func (c *RedisCacher) registerGobConcreteType(value interface{}) error {
 	}
 	return nil
 }
+
+func (c *RedisCacher) GetPool() (*redis.Pool, error) {
+	return c.pool,nil
+}
+
+func (c *RedisCacher) SetPool(pool *redis.Pool) {
+	c.pool = pool
+}
+
