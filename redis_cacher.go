@@ -72,6 +72,11 @@ func NewRedisCacher(host string, password string, defaultExpiration time.Duratio
 			return nil
 		},
 	}
+	return MakeRedisCacher(pool, defaultExpiration, logger)
+}
+
+// MakeRedisCacher build a cacher based on redis.Pool
+func MakeRedisCacher(pool *redis.Pool, defaultExpiration time.Duration, logger core.ILogger) *RedisCacher {
 	return &RedisCacher{pool: pool, defaultExpiration: defaultExpiration, Logger: logger}
 }
 
@@ -303,10 +308,9 @@ func (c *RedisCacher) registerGobConcreteType(value interface{}) error {
 }
 
 func (c *RedisCacher) GetPool() (*redis.Pool, error) {
-	return c.pool,nil
+	return c.pool, nil
 }
 
 func (c *RedisCacher) SetPool(pool *redis.Pool) {
 	c.pool = pool
 }
-
