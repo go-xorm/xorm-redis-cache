@@ -202,7 +202,7 @@ func (c *RedisCacher) DelBean(tableName string, id string) {
 }
 
 func (c *RedisCacher) ClearIds(tableName string) {
-	c.delObjects(c.getSqlKey(tableName, "*"))
+	c.delObjects(fmt.Sprintf("xorm:sql:%s:*", tableName))
 }
 
 func (c *RedisCacher) ClearBeans(tableName string) {
