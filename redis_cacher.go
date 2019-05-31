@@ -182,15 +182,32 @@ func (c *RedisCacher) delObjects(key string) error {
 	conn := c.pool.Get()
 	defer conn.Close()
 
-	keys, err := conn.Do("KEYS", key)
-	c.logDebugf("delObjects keys: %v", keys)
-
-	if err == nil {
-		for _, key := range keys.([]interface{}) {
-			conn.Do("DEL", key)
+	cursor := 0
+	args := []interface{}{cursor, "MATCH", key, "COUNT", 5000}
+	for cursor != -1 {
+		args[0] = cursor
+		replys, err := conn.Do("SCAN", args...)
+		if err != nil {
+			return err
+		}
+		if err == nil {
+			for index, reply := range replys.([]interface{}) {
+				if index == 0 {
+					cursor, _ = redis.Int(reply, nil)
+					if cursor == 0 {
+						cursor = -1
+					}
+				} else {
+					keys, _ := redis.Values(reply, nil)
+					if len(keys) > 0 {
+						c.logDebugf("delObjects keys: %s", keys)
+						conn.Do("DEL", keys...)
+					}
+				}
+			}
 		}
 	}
-	return err
+	return nil
 }
 
 func (c *RedisCacher) DelIds(tableName, sql string) {
